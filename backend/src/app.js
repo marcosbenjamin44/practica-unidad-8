@@ -53,7 +53,7 @@ function validarTarea(datos) {
 app.get("/salud", async (req, res) => {
   try {
     await pool.query("SELECT 1");
-    res.status(200).json({ estado: "ok", baseDeDatos: "conectada", entorno: process.env.NODE_ENV || "desarrollo" });
+    res.status(200).json({ estado: "ok", version: "1.1", baseDeDatos: "conectada", entorno: process.env.NODE_ENV || "desarrollo" });
   } catch (error) {
     console.error("Fallo de salud:", error.message);
     res.status(503).json({ estado: "error", baseDeDatos: "sin conexión" });
