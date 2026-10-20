@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tareas · Unidad 8</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; background: #f4f6f8; color: #1d2733; }
+    form { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    input[type=text] { flex: 1; padding: .6rem; border: 1px solid #b8c4d0; border-radius: 6px; }
+    button { padding: .5rem .9rem; border: none; border-radius: 6px; background: #0f8f82; color: #fff; cursor: pointer; }
+    button.borrar { background: #c8433f; }
+    li { display: flex; align-items: center; gap: .6rem; background: #fff; padding: .6rem; margin: .4rem 0; border-radius: 6px; list-style: none; }
+    li span { flex: 1; }
+    li.hecha span { text-decoration: line-through; color: #7a8896; }
+    #estado { font-size: .85rem; color: #54697c; }
+  </style>
+</head>
+<body>
+  <h1>Mis tareas</h1>
+  <p id="estado">Cargando...</p>
+  <form id="formulario">
+    <input type="text" id="titulo" placeholder="Nueva tarea" maxlength="120" required>
+    <button type="submit">Agregar</button>
+  </form>
+  <ul id="lista"></ul>
+
+  <script>
+    const lista = document.getElementById("lista");
+    const estado = document.getElementById("estado");
+
+    async function cargar() {
+      const res = await fetch("/api/tareas");
+      const tareas = await res.json();
+      lista.replaceChildren();
+      tareas.forEach((tarea) => {
+        const li = document.createElement("li");
+        if (tarea.completada) li.className = "hecha";
+
+        const casilla = document.createElement("input");
+        casilla.type = "checkbox";
+        casilla.checked = tarea.completada;
+        casilla.onchange = () => actualizar(tarea, casilla.checked);
+
+        const texto = document.createElement("span");
+        texto.textContent = tarea.titulo; // textContent evita inyectar HTML (XSS)
+
+        const borrar = document.createElement("button");
+        borrar.className = "borrar";
+        borrar.textContent = "Eliminar";
+        borrar.onclick = () => eliminar(tarea.id);
+
+        li.append(casilla, texto, borrar);
+        lista.append(li);
+      });
+      estado.textContent = tareas.length + " tarea(s) guardadas en PostgreSQL";
+    }
+
+    async function actualizar(tarea, completada) {
+      await fetch("/api/tareas/" + tarea.id, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titulo: tarea.titulo, descripcion: tarea.descripcion, completada })
+      });
+      cargar();
+    }
+
+    async function eliminar(id) {
+      await fetch("/api/tareas/" + id, { method: "DELETE" });
+      cargar();
+    }
+
+    document.getElementById("formulario").onsubmit = async (evento) => {
+      evento.preventDefault();
+      const campo = document.getElementById("titulo");
+      await fetch("/api/tareas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titulo: campo.value })
+      });
+      campo.value = "";
+      cargar();
+    };
+
+    cargar().catch(() => { estado.textContent = "No se pudo conectar con la API."; });
+  </script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# Dependencias: se reinstalan con npm install / npm ci
+node_modules/
+
+# Secretos reales: nunca al repositorio
+.env
