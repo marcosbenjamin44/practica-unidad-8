@@ -1,0 +1,72 @@
+name: CI/CD backend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pruebas:
+    name: Pruebas automatizadas
+    runs-on: ubuntu-latest
+
+    # Base de datos PostgreSQL temporal, solo para las pruebas (se destruye al terminar)
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tareas_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tareas_test
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Descargar el código del repositorio
+        uses: actions/checkout@v5
+
+      - name: Instalar Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar pruebas
+        run: npm test
+
+  despliegue:
+    name: Desplegar en Render
+    needs: pruebas
+    # Solo despliega cuando hay push a main (no en pull requests) y las pruebas pasaron
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Llamar al Deploy Hook de Render
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::warning::Aun no existe el secreto RENDER_DEPLOY_HOOK_URL. Se omite el despliegue (ver Paso 10)."
+            exit 0
+          fi
+          curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
+          echo "Despliegue solicitado a Render correctamente."
